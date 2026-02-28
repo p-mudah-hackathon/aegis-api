@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+reset_error.log
+
+# Windows specific
+desktop.ini
+Thumbs.db
+ehthumbs.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
