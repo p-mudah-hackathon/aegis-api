@@ -1,0 +1,108 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: ci-pipeline-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DOCKER_IMAGE: fierynxx/aegis-api
+  INFRA_REPO: p-mudah-hackathon/aegis-infrastructure
+  DEPLOYMENT_FILE_PATH: apps/aegis-api/01-deployment.yaml
+  GIT_EMAIL: action@github.com
+  GIT_NAME: GitOps Bot
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.slug.outputs.sha8 }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Get Short SHA
+        id: slug
+        run: echo "sha8=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: fierynxx
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ steps.slug.outputs.sha8 }}
+
+  update-infra:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.GH_PAT_INFRA_ACCESS }}
+          fetch-depth: 0
+          path: infra
+          persist-credentials: true
+
+      - name: Update Image Tag in YAML
+        run: |
+          set -euo pipefail
+          NEW_TAG=${{ needs.build-and-push.outputs.short_sha }}
+          RELATIVE_PATH="${{ env.DEPLOYMENT_FILE_PATH }}"
+          FILE="infra/$RELATIVE_PATH"
+
+          echo "Updating file: $FILE"
+          echo "New Tag: $NEW_TAG"
+
+          if [ ! -f "$FILE" ]; then
+            echo "File $FILE does not exist!"
+            exit 1
+          fi
+
+          sed -i -E "0,\#(image:[[:space:]]*${{ env.DOCKER_IMAGE }}:)[^[:space:]]+#s##\1${NEW_TAG}#" "$FILE"
+
+          echo "After update:"
+          grep -n "image:.*${{ env.DOCKER_IMAGE }}" "$FILE" || true
+
+      - name: Commit and Push Changes
+        run: |
+          set -euo pipefail
+          REL_PATH="${{ env.DEPLOYMENT_FILE_PATH }}"
+          cd infra
+
+          git config user.email "${{ env.GIT_EMAIL }}"
+          git config user.name "${{ env.GIT_NAME }}"
+
+          git fetch origin main
+
+          if git diff --quiet -- "${REL_PATH}"; then
+            echo "No changes detected in ${REL_PATH}. Skipping push."
+            exit 0
+          fi
+
+          git add "${REL_PATH}"
+          git commit -m "Auto-deploy: Update API image tag to ${{ needs.build-and-push.outputs.short_sha }}"
+          git pull --rebase origin main
+          git push origin main
