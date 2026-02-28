@@ -26,6 +26,20 @@ class Settings(BaseSettings):
         description="Async SQLAlchemy database URL (PostgreSQL + asyncpg)",
     )
 
+    # ── Paylabs Integrations ─────────────────────────────────────────────
+    paylabs_merchant_id: str = Field(
+        default="",
+        description="Paylabs Merchant ID",
+    )
+    paylabs_public_key: str = Field(
+        default="",
+        description="Paylabs Public Key",
+    )
+    paylabs_private_key: str = Field(
+        default="",
+        description="Paylabs Private Key",
+    )
+
     # ── Server ───────────────────────────────────────────────────────────
     app_name: str = "AegisNode API Gateway"
     debug: bool = False

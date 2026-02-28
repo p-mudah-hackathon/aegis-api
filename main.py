@@ -22,6 +22,7 @@ from routers.transactions import router as transactions_router
 from routers.system import router as system_router
 from routers.filler import router as filler_router
 from routers.chat import router as chat_router
+from routers.paylabs import router as paylabs_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -81,6 +82,7 @@ app.include_router(dashboard_router)
 app.include_router(system_router)
 app.include_router(filler_router)
 app.include_router(chat_router)
+app.include_router(paylabs_router)
 
 
 @app.get("/health", tags=["System"])
